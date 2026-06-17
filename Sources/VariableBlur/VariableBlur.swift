@@ -19,10 +19,7 @@ public struct VariableBlur: View {
     }
     
     enum Constants {
-        static let groupName = "variableBlur"
-        static let setGroupNameSelector = "setGroupName:"
-        static let setScaleSelector = "setScale:"
-        static let backdropLayerClassName = "CABackdropLayer"
+        static let groupName = "blurLayer"
     }
     
     // MARK: - Properties
@@ -86,7 +83,7 @@ public struct VariableBlur: View {
     // MARK: - Body
     
     public var body: some View {
-        PlatformVariableBlurViewRepresentable(
+        VariableBlurLayerView(
             blurRadius: blurRadius,
             maskType: maskType
         )

@@ -16,7 +16,6 @@ enum BlurMaskBuilder {
         static let inputRadiusKey = "inputRadius"
         static let inputMaskImageKey = "inputMaskImage"
         static let inputNormalizeEdgesKey = "inputNormalizeEdges"
-        static let filterTypeSelector = "filterWithType:"
     }
     
     /// Creates a gradient image to be used as a mask for the variable blur.
@@ -75,17 +74,25 @@ enum BlurMaskBuilder {
     ///   - size: The desired size of the mask.
     /// - Returns: A mask image or nil if generation failed.
     @MainActor
-    static func generateMaskImage(maskType: VariableBlur.MaskType, size: CGSize) -> CGImage? {
+    static func generateMaskImage(
+        maskType: VariableBlur.MaskType,
+        size: CGSize,
+        scale: CGFloat = 1
+    ) -> CGImage? {
+        let scale = max(scale, 1)
+        
         switch maskType {
         case .view(let view):
             let renderer = ImageRenderer(content: view)
             renderer.proposedSize = ProposedViewSize(size)
+            renderer.scale = scale
             return renderer.cgImage
         case .image(let image):
             return image
         case .gradient(let start, let end, let style):
+            let pixelSize = CGSize(width: size.width * scale, height: size.height * scale)
             return makeGradientImage(
-                size: size,
+                size: pixelSize,
                 startPoint: start,
                 endPoint: end,
                 gradientStyle: style
@@ -99,19 +106,15 @@ enum BlurMaskBuilder {
     ///   - maskImage: The mask image controlling blur intensity.
     /// - Returns: A configured filter object or nil if configuration failed.
     static func configureVariableBlurFilter(blurRadius: CGFloat, maskImage: CGImage?) -> NSObject? {
-        guard let CAFilter = NSClassFromString("CAFilter") as? NSObject.Type,
-              let variableBlur = CAFilter.perform(
-                NSSelectorFromString(Constants.filterTypeSelector),
-                with: Constants.filterTypeName
-              )?.takeUnretainedValue() as? NSObject,
-              let maskImage = maskImage else {
+        guard let maskImage,
+              let variableBlur = VariableBlurRuntime.makeFilter(named: Constants.filterTypeName) else {
             return nil
         }
         
         // Configure the filter.
-        variableBlur.setValue(blurRadius, forKey: Constants.inputRadiusKey)
+        variableBlur.setValue(NSNumber(value: Double(blurRadius)), forKey: Constants.inputRadiusKey)
         variableBlur.setValue(maskImage, forKey: Constants.inputMaskImageKey)
-        variableBlur.setValue(true, forKey: Constants.inputNormalizeEdgesKey)
+        variableBlur.setValue(NSNumber(value: true), forKey: Constants.inputNormalizeEdgesKey)
         
         return variableBlur
     }
